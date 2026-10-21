@@ -8,6 +8,15 @@ namespace ScreensaverEngine {
 
 static const char* kRegistryKeyPath = "Software\\ScreensaverStudio";
 
+const char* GetNighttimeModeLabel(int mode) {
+    switch (mode) {
+    case kNighttimeSoftDim:      return "Nighttime Soft & Dim (15%)";
+    case kNighttimeUltraDark:    return "Ultra-Dark Sleep (5%)";
+    case kNighttimeAutoSchedule: return "Auto-Night (10PM-7AM)";
+    default:                     return "Off (100%)";
+    }
+}
+
 namespace {
     BOOL CALLBACK MonitorEnumProc(HMONITOR hMon, HDC, LPRECT, LPARAM dwData) {
         auto* list = reinterpret_cast<std::vector<MonitorDesc>*>(dwData);
@@ -29,7 +38,6 @@ std::vector<MonitorDesc> EnumerateConnectedMonitors() {
     std::vector<MonitorDesc> monitors;
     EnumDisplayMonitors(nullptr, nullptr, MonitorEnumProc, reinterpret_cast<LPARAM>(&monitors));
 
-    // Sort so Primary monitor is always Monitor 1 (index 0), then left-to-right by X coordinate
     std::sort(monitors.begin(), monitors.end(), [](const MonitorDesc& a, const MonitorDesc& b) {
         if (a.isPrimary != b.isPrimary) return a.isPrimary;
         if (a.bounds.left != b.bounds.left) return a.bounds.left < b.bounds.left;
@@ -60,7 +68,6 @@ void ScreensaverConfig::LoadFromRegistry() {
         DWORD size = sizeof(DWORD);
         DWORD val = 0;
 
-        // Legacy fallback if "SelectedEffect" was saved previously
         if (RegQueryValueExA(hKey, "SelectedEffect", nullptr, nullptr, reinterpret_cast<LPBYTE>(&val), &size) == ERROR_SUCCESS) {
             monitorEffectIndex[0] = static_cast<int>(val);
         }
@@ -81,6 +88,10 @@ void ScreensaverConfig::LoadFromRegistry() {
         size = sizeof(DWORD);
         if (RegQueryValueExA(hKey, "SpeedPercent", nullptr, nullptr, reinterpret_cast<LPBYTE>(&val), &size) == ERROR_SUCCESS) {
             speedPercent = static_cast<int>(val);
+        }
+        size = sizeof(DWORD);
+        if (RegQueryValueExA(hKey, "NighttimeMode", nullptr, nullptr, reinterpret_cast<LPBYTE>(&val), &size) == ERROR_SUCCESS) {
+            nighttimeMode = std::clamp(static_cast<int>(val), 0, 3);
         }
         size = sizeof(DWORD);
         if (RegQueryValueExA(hKey, "VSync", nullptr, nullptr, reinterpret_cast<LPBYTE>(&val), &size) == ERROR_SUCCESS) {
@@ -107,6 +118,9 @@ void ScreensaverConfig::SaveToRegistry() const {
         val = static_cast<DWORD>(speedPercent);
         RegSetValueExA(hKey, "SpeedPercent", 0, REG_DWORD, reinterpret_cast<const BYTE*>(&val), sizeof(DWORD));
 
+        val = static_cast<DWORD>(nighttimeMode);
+        RegSetValueExA(hKey, "NighttimeMode", 0, REG_DWORD, reinterpret_cast<const BYTE*>(&val), sizeof(DWORD));
+
         val = vsync ? 1 : 0;
         RegSetValueExA(hKey, "VSync", 0, REG_DWORD, reinterpret_cast<const BYTE*>(&val), sizeof(DWORD));
 
@@ -115,12 +129,13 @@ void ScreensaverConfig::SaveToRegistry() const {
 }
 
 namespace {
-    constexpr int IDC_COMBO_MON_BASE = 200; // 200..207 for monitors 0..7
-    constexpr int IDC_COMBO_SPEED    = 102;
-    constexpr int IDC_COMBO_CYCLE    = 103;
-    constexpr int IDC_CHECK_VSYNC    = 104;
-    constexpr int IDC_BTN_OK         = IDOK;
-    constexpr int IDC_BTN_CANCEL     = IDCANCEL;
+    constexpr int IDC_COMBO_MON_BASE  = 200; // 200..207 for monitors 0..7
+    constexpr int IDC_COMBO_SPEED     = 102;
+    constexpr int IDC_COMBO_CYCLE     = 103;
+    constexpr int IDC_CHECK_VSYNC     = 104;
+    constexpr int IDC_COMBO_NIGHTTIME = 105;
+    constexpr int IDC_BTN_OK          = IDOK;
+    constexpr int IDC_BTN_CANCEL      = IDCANCEL;
 
     struct DialogState {
         ScreensaverConfig* config = nullptr;
@@ -131,24 +146,16 @@ namespace {
         HWND lblMonitorDesc[kMaxMonitors] = {};
         HWND comboSpeed = nullptr;
         HWND comboCycle = nullptr;
+        HWND comboNighttime = nullptr;
         HWND checkVsync = nullptr;
         std::vector<std::unique_ptr<IScreensaver>> effects;
         std::vector<MonitorDesc> monitors;
     };
 
-    // Maps ComboBox selection index -> config effect index for Monitor 0 vs Monitor 1+
     int ComboSelToEffectIndex(int monitorIdx, int comboSel) {
         if (monitorIdx == 0) {
-            // Monitor 1 items:
-            // 0: [ Auto-Cycle All Effects ] -> kEffectAutoCycle (-1)
-            // 1..N: Effect 0..N-1
             return (comboSel <= 0) ? kEffectAutoCycle : (comboSel - 1);
         } else {
-            // Monitor 2+ items:
-            // 0: [ Auto-Cycle (Offset from Monitor 1) ] -> kEffectAutoCycleOffset (-2)
-            // 1: [ Mirror Monitor 1 ]                   -> kEffectMirrorPrimary (-3)
-            // 2: [ Auto-Cycle (Same Order) ]            -> kEffectAutoCycle (-1)
-            // 3..N+2: Effect 0..N-1
             if (comboSel == 0) return kEffectAutoCycleOffset;
             if (comboSel == 1) return kEffectMirrorPrimary;
             if (comboSel == 2) return kEffectAutoCycle;
@@ -249,6 +256,23 @@ namespace {
                 yCursor += 38;
             }
 
+            // Nighttime / Sleep Mode Selector
+            makeControl("STATIC", "Nighttime / Sleep Mode (Softens glare, warms blue light & dims output):", 0, 20, yCursor, 410, 18, 0);
+            yCursor += 20;
+            state->comboNighttime = makeControl("COMBOBOX", "", CBS_DROPDOWNLIST | WS_TABSTOP, 20, yCursor, 410, 180, IDC_COMBO_NIGHTTIME);
+            const char* nightLabels[] = {
+                "Off (100% Full Vibrancy & Brightness)",
+                "Nighttime Soft & Dim (15% Brightness, Warm Low-Blue Glow, Soft Focus)",
+                "Ultra-Dark Sleep Mode (5% Brightness, Deep Amber Candlelight)",
+                "Auto-Schedule Nighttime (Soft & Dim from 10:00 PM to 7:00 AM)"
+            };
+            for (int i = 0; i < 4; ++i) {
+                SendMessageA(state->comboNighttime, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(nightLabels[i]));
+            }
+            int nightSel = std::clamp(state->config->nighttimeMode, 0, 3);
+            SendMessageA(state->comboNighttime, CB_SETCURSEL, nightSel, 0);
+            yCursor += 36;
+
             makeControl("STATIC", "Animation Speed:", 0, 20, yCursor, 180, 18, 0);
             makeControl("STATIC", "Auto-Cycle Interval:", 0, 235, yCursor, 180, 18, 0);
             yCursor += 20;
@@ -293,6 +317,9 @@ namespace {
                     int sel = static_cast<int>(SendMessageA(state->comboMonitor[m], CB_GETCURSEL, 0, 0));
                     state->config->monitorEffectIndex[m] = ComboSelToEffectIndex(m, sel);
                 }
+
+                int nightSel = static_cast<int>(SendMessageA(state->comboNighttime, CB_GETCURSEL, 0, 0));
+                state->config->nighttimeMode = std::clamp(nightSel, 0, 3);
 
                 const int speedValues[] = { 50, 100, 150, 200 };
                 int spdSel = static_cast<int>(SendMessageA(state->comboSpeed, CB_GETCURSEL, 0, 0));
@@ -343,11 +370,10 @@ bool ShowConfigurationDialog(HINSTANCE hInstance, HWND parentHwnd, ScreensaverCo
     state.config = &config;
     state.effects = CreateAllEffects();
     state.monitors = EnumerateConnectedMonitors();
-    // Always display at least 2 monitor selectors so dual-monitor setup is always configurable
     state.numMonitorControls = (std::clamp)(static_cast<int>(state.monitors.size()), 2, kMaxMonitors);
 
     int width = 465;
-    int height = 195 + state.numMonitorControls * 106;
+    int height = 250 + state.numMonitorControls * 106;
     int screenW = GetSystemMetrics(SM_CXSCREEN);
     int screenH = GetSystemMetrics(SM_CYSCREEN);
     int x = (screenW - width) / 2;
@@ -360,7 +386,7 @@ bool ShowConfigurationDialog(HINSTANCE hInstance, HWND parentHwnd, ScreensaverCo
     HWND dlg = CreateWindowExA(
         WS_EX_DLGMODALFRAME | WS_EX_TOPMOST,
         className,
-        "Windows Screensaver Studio - Multi-Monitor Settings",
+        "Windows Screensaver Studio - Multi-Monitor & Nighttime Settings",
         WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_VISIBLE,
         x, y, width, height,
         parentHwnd,

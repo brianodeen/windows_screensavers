@@ -63,15 +63,16 @@ static void UpdateStudioWindowTitle() {
         std::snprintf(mon2Info, sizeof(mon2Info), " | Mon 2: %s", g_app->windows[1].renderer->GetActiveEffectName());
     }
 
-    char title[320];
+    char title[360];
     std::snprintf(
         title,
         sizeof(title),
-        "Screensaver Studio | Mon 1 [%d/%d]: %s%s | %.1fx %s | [Left/Right: Mon1] [ [ / ]: Mon2] [M: Dual-Mon] [C: Config] [F11: Full]",
+        "Screensaver Studio | Mon 1 [%d/%d]: %s%s | Night: %s | %.1fx %s | [Left/Right] [N: Night] [M: Dual-Mon] [C: Config]",
         r0.GetActiveEffectIndex() + 1,
         r0.GetEffectCount(),
         r0.GetActiveEffectName(),
         mon2Info,
+        GetNighttimeModeLabel(g_app->config.nighttimeMode),
         r0.GetSpeedMultiplier(),
         g_app->paused ? "(PAUSED)" : "");
     SetWindowTextA(primaryHwnd, title);
@@ -295,6 +296,15 @@ LRESULT CALLBACK MainWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
 
             case 'M':
                 ToggleMultiMonitorStudioPreview();
+                break;
+
+            case 'N':
+                g_app->config.nighttimeMode = (g_app->config.nighttimeMode + 1) % 4;
+                g_app->config.SaveToRegistry();
+                for (auto& mw : g_app->windows) {
+                    if (mw.renderer) mw.renderer->SetNighttimeMode(g_app->config.nighttimeMode);
+                }
+                UpdateStudioWindowTitle();
                 break;
 
             case 'C':

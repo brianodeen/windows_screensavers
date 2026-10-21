@@ -23,6 +23,7 @@ public:
     void SelectEffect(int index);
     void ApplyConfig(const ScreensaverConfig& config);
     void SyncWithPrimary(const Renderer& primaryRenderer);
+    void SetNighttimeMode(int mode);
 
     HWND GetHwnd() const { return m_hwnd; }
     int GetMonitorIndex() const { return m_monitorIndex; }
@@ -32,10 +33,12 @@ public:
     const char* GetActiveEffectName() const;
     const char* GetActiveEffectDescription() const;
     float GetSpeedMultiplier() const { return m_speedMultiplier; }
+    int GetNighttimeMode() const { return m_config.nighttimeMode; }
     void AdjustSpeed(float delta);
 
 private:
     bool CreateRenderTarget();
+    bool InitPostProcessPipeline();
     void ResolveInitialEffectIndex();
 
     HWND m_hwnd = nullptr;
@@ -48,6 +51,15 @@ private:
     ComPtr<IDXGISwapChain> m_swapChain;
     ComPtr<ID3D11RenderTargetView> m_rtv;
     ComPtr<ID3D11RasterizerState> m_rasterizerState;
+
+    // Offscreen scene render target & post-processing pipeline for Nighttime Soft & Dim mode
+    ComPtr<ID3D11Texture2D> m_sceneTex;
+    ComPtr<ID3D11RenderTargetView> m_sceneRTV;
+    ComPtr<ID3D11ShaderResourceView> m_sceneSRV;
+    ComPtr<ID3D11VertexShader> m_postVS;
+    ComPtr<ID3D11PixelShader> m_postPS;
+    ComPtr<ID3D11Buffer> m_postCB;
+    ComPtr<ID3D11SamplerState> m_linearClampSampler;
 
     std::vector<std::unique_ptr<IScreensaver>> m_effects;
     int m_activeIndex = 0;
