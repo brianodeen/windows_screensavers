@@ -10,9 +10,9 @@ static const char* kRegistryKeyPath = "Software\\ScreensaverStudio";
 
 const char* GetNighttimeModeLabel(int mode) {
     switch (mode) {
-    case kNighttimeSoftDim:      return "Nighttime Soft & Dim (15%)";
-    case kNighttimeUltraDark:    return "Ultra-Dark Sleep (5%)";
-    case kNighttimeAutoSchedule: return "Auto-Night (10PM-7AM)";
+    case kNighttimeSoftDim:      return "Nighttime Soft & Dim (40%)";
+    case kNighttimeUltraDark:    return "Ultra-Dark Sleep (20%)";
+    case kNighttimeAutoSchedule: return "Auto-Night (10PM-7AM, 40%)";
     default:                     return "Off (100%)";
     }
 }
@@ -262,9 +262,9 @@ namespace {
             state->comboNighttime = makeControl("COMBOBOX", "", CBS_DROPDOWNLIST | WS_TABSTOP, 20, yCursor, 410, 180, IDC_COMBO_NIGHTTIME);
             const char* nightLabels[] = {
                 "Off (100% Full Vibrancy & Brightness)",
-                "Nighttime Soft & Dim (15% Brightness, Warm Low-Blue Glow, Soft Focus)",
-                "Ultra-Dark Sleep Mode (5% Brightness, Deep Amber Candlelight)",
-                "Auto-Schedule Nighttime (Soft & Dim from 10:00 PM to 7:00 AM)"
+                "Nighttime Soft & Dim (40% Brightness, Warm Low-Blue Glow, Soft Focus)",
+                "Ultra-Dark Sleep Mode (20% Brightness, Deep Amber Candlelight)",
+                "Auto-Schedule Nighttime (40% Soft & Dim from 10:00 PM to 7:00 AM)"
             };
             for (int i = 0; i < 4; ++i) {
                 SendMessageA(state->comboNighttime, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(nightLabels[i]));

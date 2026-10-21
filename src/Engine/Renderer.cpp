@@ -169,22 +169,22 @@ float4 PSMain(PSIn input) : SV_TARGET {
     col += uSceneTex.SampleLevel(uLinearSampler, uv + float2(0.0,  r2.y * 1.3), 0).rgb * 0.03;
     col += uSceneTex.SampleLevel(uLinearSampler, uv + float2(0.0, -r2.y * 1.3), 0).rgb * 0.03;
 
-    // Compress bright highlight spikes so nothing glares in a dark room
-    col = col / (1.0 + col * uHighlightComp);
+    // Gentle soft-knee highlight roll-off on bright spikes without darkening midtones
+    col = (col * (1.0 + col * 0.25)) / (1.0 + col * uHighlightComp);
 
     // Circadian Warm Low-Blue-Light Shift:
     // Gently reduces harsh blue/cyan channels and warms toward soothing amber candlelight
     float luma = dot(col, float3(0.299, 0.587, 0.114));
-    float3 warmTint = float3(1.08, 0.76, 0.36) * luma;
+    float3 warmTint = float3(1.12, 0.84, 0.45) * luma;
     float3 filtered = float3(
-        lerp(col.r, warmTint.r, uWarmth * 0.55),
-        lerp(col.g, warmTint.g, uWarmth * 0.50),
-        lerp(col.b, warmTint.b * 0.45, uWarmth * 0.85)
+        lerp(col.r, warmTint.r, uWarmth * 0.45),
+        lerp(col.g, warmTint.g, uWarmth * 0.40),
+        lerp(col.b, warmTint.b * 0.60, uWarmth * 0.70)
     );
 
-    // Extra edge vignette in Nighttime Mode so monitor bezels fade into darkness
+    // Gentle edge vignette in Nighttime Mode so monitor bezels fade softly
     float2 centered = uv * 2.0 - 1.0;
-    float nightVignette = 1.0 - 0.28 * dot(centered, centered) * saturate(uSoftness);
+    float nightVignette = 1.0 - 0.12 * dot(centered, centered) * saturate(uSoftness);
 
     filtered *= uBrightness * saturate(nightVignette);
     return float4(saturate(filtered), 1.0);
@@ -346,17 +346,17 @@ void Renderer::UpdateAndRender(float deltaTime, bool allowVSyncWait) {
         post.invResY = 1.0f / static_cast<float>(m_height);
 
         if (effectiveNightMode == kNighttimeUltraDark) {
-            // Ultra-Dark Sleep Mode (5% deep amber candlelight, extra soft focus)
-            post.brightness = 0.06f;
-            post.softness = 2.2f;
-            post.warmth = 0.85f;
-            post.highlightComp = 1.8f;
+            // Ultra-Dark Sleep Mode (20% deep amber candlelight, extra soft focus)
+            post.brightness = 0.20f;
+            post.softness = 1.85f;
+            post.warmth = 0.72f;
+            post.highlightComp = 0.40f;
         } else {
-            // Nighttime Soft & Dim (15% warm low-blue glow, gentle soft focus)
-            post.brightness = 0.16f;
-            post.softness = 1.45f;
-            post.warmth = 0.62f;
-            post.highlightComp = 1.2f;
+            // Nighttime Soft & Dim (40% warm low-blue glow, gentle soft focus)
+            post.brightness = 0.40f;
+            post.softness = 1.25f;
+            post.warmth = 0.48f;
+            post.highlightComp = 0.30f;
         }
 
         ShaderHelper::UpdateConstantBuffer(m_context.Get(), m_postCB.Get(), post);

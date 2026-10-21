@@ -16,9 +16,9 @@ constexpr int kEffectMirrorPrimary   = -3; // Always matches Monitor 1's active 
 // Nighttime / Sleep Mode options
 enum NighttimeMode : int {
     kNighttimeOff          = 0, // 100% normal brightness & colors
-    kNighttimeSoftDim      = 1, // Soft blur + warm low-blue-light + 15% dim brightness
-    kNighttimeUltraDark    = 2, // Extra soft + deep amber shift + 5% ultra-dim bedroom mode
-    kNighttimeAutoSchedule = 3  // Automatically enables Soft & Dim between 10:00 PM and 7:00 AM
+    kNighttimeSoftDim      = 1, // Soft blur + warm low-blue-light + 40% dim brightness
+    kNighttimeUltraDark    = 2, // Extra soft + deep amber shift + 20% dim bedroom mode
+    kNighttimeAutoSchedule = 3  // Automatically enables Soft & Dim (40%) between 10:00 PM and 7:00 AM
 };
 
 struct MonitorDesc {

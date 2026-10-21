@@ -11,9 +11,9 @@ A lightweight, zero-dependency, GPU-accelerated Windows Screensaver Engine & Eff
   - Applies a 13-tap soft-focus spatial filter, compresses bright highlight peaks, warms short-wavelength blue light toward circadian-friendly amber tones, and dims overall output so it never glares or wakes you up.
   - Configurable in Settings (`/c` or `C`) or toggled live with **`N`**:
     - **Off (100% Full Vibrancy & Brightness)**
-    - **Nighttime Soft & Dim (15% Brightness, Warm Low-Blue Glow, Soft Focus)**
-    - **Ultra-Dark Sleep Mode (5% Brightness, Deep Amber Candlelight)**
-    - **Auto-Schedule Nighttime (Automatically enables Soft & Dim between 10:00 PM and 7:00 AM)**
+    - **Nighttime Soft & Dim (40% Brightness, Warm Low-Blue Glow, Soft Focus)**
+    - **Ultra-Dark Sleep Mode (20% Brightness, Deep Amber Candlelight)**
+    - **Auto-Schedule Nighttime (Automatically enables 40% Soft & Dim between 10:00 PM and 7:00 AM)**
 - **Dual Mode Execution**:
   - **Interactive Studio Mode (`ScreensaverStudio.exe`)**: Opens a resizable 1280x720 preview window on Monitor 1. Press **`M`** at any time to spawn a live fullscreen output on **Monitor 2** while keeping interactive keyboard controls!
   - **Native Windows `.scr` Support (`ScreensaverStudio.scr`)**:
